@@ -22,7 +22,9 @@ docker compose up -d --build
 docker compose run --rm watch-together python -m unittest discover -s tests
 ```
 
-Тесты распознавания ссылок YouTube и управления плеером находятся в `tests/youtube-adapter.test.cjs`; их можно выполнить Node.js командой `node --test tests/youtube-adapter.test.cjs`.
+Тесты адаптера YouTube и проверки обновлений находятся в `tests/`. Запускайте Node.js команду `node --test tests/*.test.cjs` из корня репозитория.
+
+Расширение проверяет GitHub Releases и показывает уведомление, если опубликована версия новее установленной. Если опубликованных релизов пока нет, уведомление не появится. Чтобы выпустить обновление, увеличьте `version` в `extension/manifest.json`, пересоберите ZIP и создайте GitHub Release с соответствующим тегом `vX.Y.Z`, приложив `watch-together-extension.zip`. Проверка выполняется не чаще одного раза в 6 часов; её можно запустить вручную в панели расширения. Уведомление ведёт на страницу релиза — установленное вручную распакованное расширение Chrome автоматически не заменяет.
 
 Для нового хоста настройте TLS reverse proxy на `/watch-together/api/`, проксирующий запросы на `http://127.0.0.1:8787/api/`, и укажите адрес сервера в `extension/background.js` и `extension/manifest.json`.
 

@@ -59,6 +59,7 @@
     root.innerHTML = `
       <button class="wt-toggle" type="button" aria-expanded="false">
         <span aria-hidden="true">◉</span> Смотреть вместе
+        <span class="wt-update-badge" hidden>Обновление</span>
       </button>
       <aside class="wt-panel" hidden aria-label="Совместный просмотр">
         <header class="wt-header">
@@ -68,6 +69,14 @@
           </div>
           <button class="wt-icon-button wt-close" type="button" aria-label="Закрыть">×</button>
         </header>
+        <div class="wt-update-notice" role="status" hidden>
+          <strong class="wt-update-title"></strong>
+          <a class="wt-update-link" target="_blank" rel="noopener noreferrer">Открыть обновление</a>
+        </div>
+        <div class="wt-update-tools">
+          <span class="wt-update-status" aria-live="polite">Проверяем обновления…</span>
+          <button class="wt-update-check" type="button">Проверить</button>
+        </div>
         <div class="wt-error" role="alert" hidden></div>
         <div class="wt-setup">
           <label class="wt-label" for="wt-name">Как вас называть</label>
@@ -114,6 +123,12 @@
       toggle: $(root, ".wt-toggle"),
       panel: $(root, ".wt-panel"),
       close: $(root, ".wt-close"),
+      updateBadge: $(root, ".wt-update-badge"),
+      updateNotice: $(root, ".wt-update-notice"),
+      updateTitle: $(root, ".wt-update-title"),
+      updateLink: $(root, ".wt-update-link"),
+      updateStatus: $(root, ".wt-update-status"),
+      updateCheck: $(root, ".wt-update-check"),
       error: $(root, ".wt-error"),
       setup: $(root, ".wt-setup"),
       session: $(root, ".wt-session"),
@@ -153,12 +168,44 @@
     ui.join.addEventListener("click", joinRoom);
     ui.leave.addEventListener("click", leaveRoom);
     ui.copy.addEventListener("click", copyCode);
+    ui.updateCheck.addEventListener("click", () => checkForUpdates(true));
     ui.openVideo.addEventListener("click", openRoomVideo);
     ui.chatForm.addEventListener("submit", sendChatMessage);
     ui.name.addEventListener("change", saveName);
     ui.code.addEventListener("keydown", (event) => {
       if (event.key === "Enter") joinRoom();
     });
+
+    checkForUpdates(false);
+  }
+
+  function checkForUpdates(force) {
+    ui.updateCheck.disabled = true;
+    ui.updateStatus.textContent = "Проверяем обновления…";
+    chrome.runtime.sendMessage(
+      { type: "watch-together:check-updates", force },
+      (response) => {
+        ui.updateCheck.disabled = false;
+        if (chrome.runtime.lastError || !response || response.error) {
+          ui.updateStatus.textContent =
+            (response && response.error) || "Не удалось проверить обновления.";
+          return;
+        }
+
+        const result = response.data;
+        ui.updateNotice.hidden = !result.available;
+        ui.updateBadge.hidden = !result.available;
+        if (result.available) {
+          ui.updateTitle.textContent = `Доступно обновление ${result.latestVersion}`;
+          ui.updateLink.href = result.releaseUrl;
+          ui.updateStatus.textContent = `Установлена версия ${result.installedVersion}.`;
+        } else if (result.releaseFound) {
+          ui.updateStatus.textContent = `Установлена последняя версия (${result.installedVersion}).`;
+        } else {
+          ui.updateStatus.textContent = "Обновлений пока нет.";
+        }
+      }
+    );
   }
 
   async function saveName() {

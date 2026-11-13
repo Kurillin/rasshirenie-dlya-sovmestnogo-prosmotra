@@ -4,7 +4,10 @@
   "version": "1.0.0",
   "description": "Совместный просмотр видео YouTube с синхронизацией, чатом и состоянием буфера.",
   "permissions": ["storage"],
-  "host_permissions": ["https://ext.namalkin.site/*"],
+  "host_permissions": [
+    "https://ext.namalkin.site/*",
+    "https://api.github.com/*"
+  ],
   "background": {
     "service_worker": "background.js"
   },
