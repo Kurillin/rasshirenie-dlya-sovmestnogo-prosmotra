@@ -229,7 +229,8 @@
         await chrome.storage.local.set({ watchTogetherRoom: room });
         panelOpen = true;
         renderPanel();
-        showError("Комната создана для другого видео. Нажмите «Открыть видео комнаты».");
+        showError("Открываем видео создателя комнаты…");
+        location.href = youtube.getWatchUrl(room.videoId);
         return;
       }
       showError(error.message);
