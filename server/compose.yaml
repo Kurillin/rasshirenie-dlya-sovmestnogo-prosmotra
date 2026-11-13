@@ -1,0 +1,17 @@
+services:
+  watch-together:
+    build: .
+    container_name: watch-together-api
+    restart: unless-stopped
+    environment:
+      HOST: 0.0.0.0
+      PORT: 8787
+      DATABASE_PATH: /data/watch-together.sqlite3
+    ports:
+      - "127.0.0.1:8787:8787"
+    volumes:
+      - watch-together-data:/data
+    init: true
+
+volumes:
+  watch-together-data:

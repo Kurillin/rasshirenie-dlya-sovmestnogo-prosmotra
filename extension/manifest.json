@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "Смотрим вместе",
+  "version": "1.0.0",
+  "description": "Совместный просмотр видео YouTube с синхронизацией, чатом и состоянием буфера.",
+  "permissions": ["storage"],
+  "host_permissions": ["https://ext.namalkin.site/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.youtube.com/*",
+        "https://m.youtube.com/*"
+      ],
+      "js": ["youtube-adapter.js", "content.js"],
+      "css": ["styles.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}
