@@ -87,6 +87,14 @@ def initialize_database():
             );
             CREATE INDEX IF NOT EXISTS messages_room_id
                 ON messages(room_code, id);
+            CREATE TABLE IF NOT EXISTS duck_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                room_code TEXT NOT NULL REFERENCES rooms(code) ON DELETE CASCADE,
+                client_id TEXT NOT NULL,
+                created_at REAL NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS duck_events_room_id
+                ON duck_events(room_code, id);
             """
         )
 
@@ -208,12 +216,21 @@ def room_state(connection, room_code):
         """,
         (room_code,),
     ).fetchall()
+    duck_events = connection.execute(
+        """
+        SELECT id, client_id, created_at
+        FROM duck_events WHERE room_code = ?
+        ORDER BY id DESC LIMIT 100
+        """,
+        (room_code,),
+    ).fetchall()
     return {
         "room_code": room_code,
         "video_id": room["video_id"],
         "playback": playback,
         "members": [dict(member) for member in members],
         "messages": [dict(message) for message in reversed(messages)],
+        "duck_events": [dict(event) for event in reversed(duck_events)],
         "server_time": now,
     }
 
@@ -280,7 +297,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         if path == "/api/rooms":
             self.dispatch(self.create_room)
             return
-        match = re.fullmatch(r"/api/rooms/([A-Za-z0-9-]+)/(join|presence|playback|chat)", path)
+        match = re.fullmatch(r"/api/rooms/([A-Za-z0-9-]+)/(join|presence|playback|chat|duck)", path)
         if not match:
             self.send_json(404, {"error": "Маршрут не найден."})
             return
@@ -342,6 +359,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                 raise ApiError(403, "Сначала войдите в комнату.")
 
             if action == "presence":
+                name = require_text(payload.get("name", member["name"]), "name", 32)
                 current_time = require_number(payload.get("current_time", 0), "current_time")
                 duration_value = payload.get("duration")
                 duration = None if duration_value is None else require_number(duration_value, "duration")
@@ -353,7 +371,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                 if not isinstance(status, str) or status not in MEMBER_STATUSES:
                     raise ApiError(400, "Некорректный статус участника.")
                 update_member(
-                    connection, code, client_id, member["name"], current_time,
+                    connection, code, client_id, name, current_time,
                     duration, buffered_end, ready_state, status,
                 )
                 return {"ok": True}
@@ -389,6 +407,26 @@ class RequestHandler(BaseHTTPRequestHandler):
                     """
                     DELETE FROM messages WHERE room_code = ? AND id NOT IN (
                         SELECT id FROM messages WHERE room_code = ?
+                        ORDER BY id DESC LIMIT 100
+                    )
+                    """,
+                    (code, code),
+                )
+                return {"ok": True}
+
+            if action == "duck":
+                if member["name"] != "Яро":
+                    raise ApiError(403, "Только участник с ником «Яро» может отправить приветствие.")
+                now = time.time()
+                connection.execute(
+                    "INSERT INTO duck_events(room_code, client_id, created_at) VALUES (?, ?, ?)",
+                    (code, client_id, now),
+                )
+                connection.execute("UPDATE rooms SET updated_at = ? WHERE code = ?", (now, code))
+                connection.execute(
+                    """
+                    DELETE FROM duck_events WHERE room_code = ? AND id NOT IN (
+                        SELECT id FROM duck_events WHERE room_code = ?
                         ORDER BY id DESC LIMIT 100
                     )
                     """,

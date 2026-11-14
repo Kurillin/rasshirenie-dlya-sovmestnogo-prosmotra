@@ -1,6 +1,7 @@
 (() => {
   const ROOT_ID = "watch-together-root";
   const POLL_INTERVAL = 1500;
+  const DUCK_GREETING_TEXT = "НамалкА, привА 🏂";
   const $ = (root, selector) => root.querySelector(selector);
   const youtube = globalThis.WatchTogetherYouTube;
   const playerAdapter = youtube.createPlayerAdapter();
@@ -8,6 +9,9 @@
   let room = null;
   let panelOpen = false;
   let lastMessageId = 0;
+  let lastDuckChatMessageId = 0;
+  let lastDuckEventId = 0;
+  let duckPopupTimer = null;
   let currentVideo = null;
   let removePlayerListeners = null;
   let lastVideoId = youtube.getVideoId();
@@ -67,7 +71,11 @@
             <div class="wt-eyebrow">YOUTUBE WATCH PARTY</div>
             <h2>Смотрим вместе</h2>
           </div>
-          <button class="wt-icon-button wt-close" type="button" aria-label="Закрыть">×</button>
+          <div class="wt-header-actions">
+            <button class="wt-icon-button wt-duck" type="button" aria-label="Привет от Яро" title="Привет от Яро" hidden>🦆</button>
+            <button class="wt-icon-button wt-minimize" type="button" aria-label="Свернуть окно" title="Свернуть">−</button>
+            <button class="wt-icon-button wt-close" type="button" aria-label="Закрыть">×</button>
+          </div>
         </header>
         <div class="wt-update-notice" role="status" hidden>
           <strong class="wt-update-title"></strong>
@@ -115,7 +123,11 @@
           </section>
           <button class="wt-leave" type="button">Покинуть комнату</button>
         </div>
-      </aside>`;
+      </aside>
+      <div class="wt-duck-popup" role="alertdialog" aria-modal="true" aria-label="Привет от Яро" hidden>
+        <button class="wt-duck-popup-close" type="button" aria-label="Закрыть">×</button>
+        <div class="wt-duck-popup-message">${DUCK_GREETING_TEXT}</div>
+      </div>`;
     document.documentElement.append(root);
 
     ui = {
@@ -123,6 +135,10 @@
       toggle: $(root, ".wt-toggle"),
       panel: $(root, ".wt-panel"),
       header: $(root, ".wt-header"),
+      duck: $(root, ".wt-duck"),
+      duckPopup: $(root, ".wt-duck-popup"),
+      duckPopupClose: $(root, ".wt-duck-popup-close"),
+      minimize: $(root, ".wt-minimize"),
       close: $(root, ".wt-close"),
       updateBadge: $(root, ".wt-update-badge"),
       updateNotice: $(root, ".wt-update-notice"),
@@ -165,6 +181,15 @@
       panelOpen = false;
       renderPanel();
     });
+    ui.minimize.addEventListener("click", () => {
+      panelOpen = false;
+      renderPanel();
+    });
+    ui.duck.addEventListener("click", sendDuckGreeting);
+    ui.duckPopupClose.addEventListener("click", closeDuckPopup);
+    window.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && !ui.duckPopup.hidden) closeDuckPopup();
+    });
     ui.create.addEventListener("click", createRoom);
     ui.join.addEventListener("click", joinRoom);
     ui.leave.addEventListener("click", leaveRoom);
@@ -173,10 +198,13 @@
     ui.openVideo.addEventListener("click", openRoomVideo);
     ui.chatForm.addEventListener("submit", sendChatMessage);
     ui.name.addEventListener("change", saveName);
+    ui.name.addEventListener("input", updateDuckButtonVisibility);
     ui.code.addEventListener("keydown", (event) => {
       if (event.key === "Enter") joinRoom();
     });
 
+    document.addEventListener("fullscreenchange", updateFullscreenAppearance);
+    updateFullscreenAppearance();
     enablePanelDragging();
     checkForUpdates(false);
   }
@@ -331,6 +359,8 @@
   async function activateRoom(data) {
     room = { roomCode: data.room_code, videoId: data.video_id, joined: true };
     lastMessageId = 0;
+    lastDuckChatMessageId = getLatestChatMessageId(data);
+    lastDuckEventId = getLatestDuckEventId(data);
     ui.roomCode.textContent = room.roomCode;
     ui.setup.hidden = true;
     ui.session.hidden = false;
@@ -368,6 +398,8 @@
         }
       );
       room.joined = true;
+      lastDuckChatMessageId = getLatestChatMessageId(data);
+      lastDuckEventId = getLatestDuckEventId(data);
       renderState(data);
       startPolling();
     } catch (error) {
@@ -406,6 +438,7 @@
     const snapshot = youtube.getSnapshot(video);
     await request("POST", `/rooms/${encodeURIComponent(room.roomCode)}/presence`, {
       client_id: await clientId(),
+      name: ui.name.value.trim() || "Гость",
       current_time: snapshot.position,
       duration: snapshot.duration,
       buffered_end: snapshot.bufferedEnd,
@@ -417,12 +450,14 @@
   function renderState(state) {
     renderMembers(state.members || []);
     renderMessages(state.messages || []);
+    renderDuckEvents(state.duck_events || []);
     if (state.playback) applyPlayback(state.playback);
     ui.warning.hidden = getVideoId() === room.videoId;
   }
 
   function renderMembers(members) {
     ui.memberCount.textContent = String(members.length);
+    updateDuckButtonVisibility();
     ui.members.replaceChildren();
     for (const member of members) {
       const item = document.createElement("li");
@@ -440,6 +475,10 @@
       item.append(info, indicator);
       ui.members.append(item);
     }
+  }
+
+  function updateDuckButtonVisibility() {
+    ui.duck.hidden = !room || !room.joined || ui.name.value.trim() !== "Яро";
   }
 
   let storedClientId = null;
@@ -478,6 +517,15 @@
     for (const message of messages) {
       if (message.id <= lastMessageId) continue;
       lastMessageId = message.id;
+      const isNewDuckGreeting =
+        message.id > lastDuckChatMessageId &&
+        message.name === "Яро" &&
+        message.text === DUCK_GREETING_TEXT;
+      lastDuckChatMessageId = Math.max(lastDuckChatMessageId, message.id);
+      if (isNewDuckGreeting) {
+        showDuckPopup();
+        continue;
+      }
       const item = document.createElement("li");
       item.className = "wt-message";
       const author = document.createElement("strong");
@@ -509,6 +557,70 @@
     } catch (error) {
       showError(error.message);
     }
+  }
+
+  async function sendDuckGreeting() {
+    if (!room || !room.joined) return;
+    ui.duck.disabled = true;
+    try {
+      await saveName();
+      await sendPresence();
+      const payload = { client_id: await clientId() };
+      try {
+        await request("POST", `/rooms/${encodeURIComponent(room.roomCode)}/duck`, payload);
+      } catch (error) {
+        if (error.status !== 404) throw error;
+        await request("POST", `/rooms/${encodeURIComponent(room.roomCode)}/join`, {
+          ...payload,
+          video_id: room.videoId,
+          name: ui.name.value.trim() || "Гость"
+        });
+        await request("POST", `/rooms/${encodeURIComponent(room.roomCode)}/chat`, {
+          ...payload,
+          text: DUCK_GREETING_TEXT
+        });
+      }
+      showError("");
+    } catch (error) {
+      showError(error.message);
+    } finally {
+      ui.duck.disabled = false;
+    }
+  }
+
+  function getLatestDuckEventId(state) {
+    return (state.duck_events || []).reduce(
+      (latestId, event) => Math.max(latestId, event.id),
+      0
+    );
+  }
+
+  function getLatestChatMessageId(state) {
+    return (state.messages || []).reduce(
+      (latestId, message) => Math.max(latestId, message.id),
+      0
+    );
+  }
+
+  function renderDuckEvents(events) {
+    for (const event of events) {
+      if (event.id <= lastDuckEventId) continue;
+      lastDuckEventId = event.id;
+      showDuckPopup();
+    }
+  }
+
+  function showDuckPopup() {
+    ui.duckPopup.hidden = false;
+    ui.duckPopupClose.focus();
+    if (duckPopupTimer) clearTimeout(duckPopupTimer);
+    duckPopupTimer = setTimeout(closeDuckPopup, 1000);
+  }
+
+  function closeDuckPopup() {
+    if (duckPopupTimer) clearTimeout(duckPopupTimer);
+    duckPopupTimer = null;
+    ui.duckPopup.hidden = true;
   }
 
   function applyPlayback(playback) {
@@ -557,6 +669,10 @@
     if (pollTimer) clearTimeout(pollTimer);
     pollTimer = null;
     lastMessageId = 0;
+    lastDuckChatMessageId = 0;
+    lastDuckEventId = 0;
+    ui.duck.hidden = true;
+    closeDuckPopup();
     ui.messages.replaceChildren();
     ui.setup.hidden = false;
     ui.session.hidden = true;
@@ -578,6 +694,7 @@
 
   function monitorPage() {
     attachVideoListeners();
+    updateFullscreenAppearance();
     const videoId = getVideoId();
     if (videoId !== lastVideoId) {
       lastVideoId = videoId;
@@ -591,6 +708,28 @@
       } else if (room && !room.joined && videoId === room.videoId) {
         resumeRoom();
       }
+    }
+  }
+
+  function updateFullscreenAppearance() {
+    const fullscreenPlayer = document.querySelector(".html5-video-player.ytp-fullscreen");
+    const fullscreenElement = document.fullscreenElement;
+    let fullscreenHost = fullscreenPlayer;
+
+    if (!fullscreenHost && fullscreenElement) {
+      fullscreenHost = fullscreenElement.matches("video")
+        ? fullscreenElement.closest(".html5-video-player") || fullscreenElement.parentElement
+        : fullscreenElement.querySelector("video")
+          ? fullscreenElement
+          : null;
+    }
+
+    const isFullscreen = Boolean(fullscreenHost);
+    ui.root.classList.toggle("wt-video-fullscreen", isFullscreen);
+    if (fullscreenHost && !fullscreenHost.contains(ui.root)) {
+      fullscreenHost.append(ui.root);
+    } else if (!fullscreenHost && ui.root.parentElement !== document.documentElement) {
+      document.documentElement.append(ui.root);
     }
   }
 

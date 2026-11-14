@@ -99,6 +99,51 @@
   font-weight: 650;
 }
 
+#watch-together-root .wt-header-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+}
+
+#watch-together-root .wt-duck {
+  font-size: 19px;
+}
+
+#watch-together-root .wt-duck:disabled {
+  cursor: wait;
+  opacity: .6;
+}
+
+#watch-together-root .wt-duck-popup {
+  position: fixed;
+  z-index: 2147483647;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: transparent;
+}
+
+#watch-together-root .wt-duck-popup-close {
+  position: absolute;
+  top: 20px;
+  right: 24px;
+  border: 0;
+  background: transparent;
+  color: #fff;
+  font: 36px/1 "Roboto", "Arial", sans-serif;
+  cursor: pointer;
+}
+
+#watch-together-root .wt-duck-popup-message {
+  padding: 24px;
+  color: #fff600;
+  font-size: clamp(32px, 8vw, 88px);
+  font-weight: 800;
+  text-align: center;
+  text-shadow: 0 0 8px #fff600, 0 0 20px #fff600, 0 0 48px #ffdc00;
+}
+
 #watch-together-root .wt-update-tools {
   display: flex;
   flex: 0 0 auto;
@@ -475,5 +520,52 @@
     right: 8px;
     bottom: 68px;
     width: calc(100vw - 16px);
+  }
+}
+
+#watch-together-root.wt-video-fullscreen .wt-panel {
+  border: 2px solid #ff1744;
+  background: transparent;
+  animation: wt-neon-rainbow 7s linear infinite;
+}
+
+#watch-together-root.wt-video-fullscreen * {
+  color: #fff !important;
+  text-shadow: 0 0 4px #fff, 0 0 10px #dceeff, 0 0 18px #fff !important;
+}
+
+#watch-together-root.wt-video-fullscreen .wt-input::placeholder {
+  color: #fff !important;
+  text-shadow: 0 0 4px #fff, 0 0 10px #dceeff !important;
+}
+
+@keyframes wt-neon-rainbow {
+  0%, 100% {
+    border-color: #ff1744;
+    box-shadow: 0 0 8px #ff1744, 0 0 22px #ff1744aa;
+  }
+  14.28% {
+    border-color: #ff9100;
+    box-shadow: 0 0 8px #ff9100, 0 0 22px #ff9100aa;
+  }
+  28.56% {
+    border-color: #ffea00;
+    box-shadow: 0 0 8px #ffea00, 0 0 22px #ffea00aa;
+  }
+  42.84% {
+    border-color: #00e676;
+    box-shadow: 0 0 8px #00e676, 0 0 22px #00e676aa;
+  }
+  57.12% {
+    border-color: #00e5ff;
+    box-shadow: 0 0 8px #00e5ff, 0 0 22px #00e5ffaa;
+  }
+  71.4% {
+    border-color: #2979ff;
+    box-shadow: 0 0 8px #2979ff, 0 0 22px #2979ffaa;
+  }
+  85.68% {
+    border-color: #d500f9;
+    box-shadow: 0 0 8px #d500f9, 0 0 22px #d500f9aa;
   }
 }

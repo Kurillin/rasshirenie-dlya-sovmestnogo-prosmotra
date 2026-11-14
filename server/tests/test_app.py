@@ -133,6 +133,60 @@ class WatchTogetherApiTests(unittest.TestCase):
         self.assertEqual(state["messages"][0]["text"], "Всем привет!")
         self.assertEqual(state["messages"][0]["name"], "Создатель")
 
+    def test_duck_greeting_is_shared_and_restricted_to_yaro(self):
+        created = self.create_room(name="Яро")
+        code = created["room_code"]
+        status, response = self.request_json(
+            "POST",
+            f"/api/rooms/{code}/duck",
+            {"client_id": "client_owner"},
+        )
+        self.assertEqual(status, 200)
+        self.assertTrue(response["ok"])
+
+        _, state = self.request_json("GET", f"/api/rooms/{code}/state")
+        self.assertEqual(len(state["duck_events"]), 1)
+        self.assertEqual(state["duck_events"][0]["client_id"], "client_owner")
+
+        self.request_json(
+            "POST",
+            f"/api/rooms/{code}/join",
+            {
+                "video_id": VIDEO_ID,
+                "client_id": "client_guest",
+                "name": "Гость",
+            },
+        )
+        status, response = self.request_json(
+            "POST",
+            f"/api/rooms/{code}/duck",
+            {"client_id": "client_guest"},
+        )
+        self.assertEqual(status, 403)
+        self.assertIn("Яро", response["error"])
+
+        self.request_json(
+            "POST",
+            f"/api/rooms/{code}/presence",
+            {
+                "client_id": "client_guest",
+                "name": "Яро",
+                "current_time": 0,
+                "duration": None,
+                "buffered_end": 0,
+                "ready_state": 0,
+                "status": "loading",
+            },
+        )
+        status, response = self.request_json(
+            "POST",
+            f"/api/rooms/{code}/duck",
+            {"client_id": "client_guest"},
+        )
+        self.assertEqual(status, 200)
+        _, state = self.request_json("GET", f"/api/rooms/{code}/state")
+        self.assertEqual(len(state["duck_events"]), 2)
+
     def test_invalid_video_id_is_rejected(self):
         status, response = self.request_json(
             "POST",
