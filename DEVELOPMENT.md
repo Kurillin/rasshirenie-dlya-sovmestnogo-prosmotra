@@ -119,9 +119,26 @@ docker compose ps
 curl -fsS http://127.0.0.1:8787/health
 ```
 
+На сервере находится только backend, это не Git-репозиторий. После изменения серверных файлов сначала отправьте коммит в GitHub, затем скопируйте изменённые файлы в `/opt/watch-together` через `scp` с SSH-алиасом `priva` и выполните команды проверки выше, например:
+
+```powershell
+scp .\server\app.py priva:/opt/watch-together/app.py
+ssh priva "cd /opt/watch-together && docker compose up -d --build && docker compose ps && curl -fsS http://127.0.0.1:8787/health"
+```
+
+Для изменений только расширения серверное развёртывание не требуется.
+
 ## GitHub
 
-Основная ветка — `main`. Перед коммитом проверьте `git status`, `git diff --check` и результаты тестов. Для push используйте авторизованный SSH или Git Credential Manager; приватный ключ не добавляйте в репозиторий. После push проверьте `git pull --ff-only` и чистое состояние рабочей копии.
+Основная ветка — `main`. После изменений проверьте `git status`, `git diff --check` и результаты тестов, создайте коммит и отправьте его в GitHub через remote `origin`:
+
+```powershell
+git add <изменённые-файлы>
+git commit -m "Краткое описание изменений"
+git push origin main
+```
+
+Remote `origin` использует SSH. Приватный ключ не добавляйте в репозиторий. После push проверьте результат и чистое состояние рабочей копии.
 
 ## Типовые неисправности
 

@@ -122,6 +122,7 @@
       root,
       toggle: $(root, ".wt-toggle"),
       panel: $(root, ".wt-panel"),
+      header: $(root, ".wt-header"),
       close: $(root, ".wt-close"),
       updateBadge: $(root, ".wt-update-badge"),
       updateNotice: $(root, ".wt-update-notice"),
@@ -176,7 +177,50 @@
       if (event.key === "Enter") joinRoom();
     });
 
+    enablePanelDragging();
     checkForUpdates(false);
+  }
+
+  function enablePanelDragging() {
+    let drag = null;
+
+    ui.header.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0 || event.target.closest("button")) return;
+
+      const bounds = ui.panel.getBoundingClientRect();
+      drag = {
+        pointerId: event.pointerId,
+        offsetX: event.clientX - bounds.left,
+        offsetY: event.clientY - bounds.top
+      };
+      ui.panel.style.left = `${bounds.left}px`;
+      ui.panel.style.top = `${bounds.top}px`;
+      ui.panel.style.right = "auto";
+      ui.panel.style.bottom = "auto";
+      ui.header.setPointerCapture(event.pointerId);
+    });
+
+    ui.header.addEventListener("pointermove", (event) => {
+      if (!drag || event.pointerId !== drag.pointerId) return;
+
+      const maxLeft = Math.max(0, window.innerWidth - ui.panel.offsetWidth);
+      const maxTop = Math.max(0, window.innerHeight - ui.panel.offsetHeight);
+      const left = Math.min(maxLeft, Math.max(0, event.clientX - drag.offsetX));
+      const top = Math.min(maxTop, Math.max(0, event.clientY - drag.offsetY));
+      ui.panel.style.left = `${left}px`;
+      ui.panel.style.top = `${top}px`;
+    });
+
+    const stopDragging = (event) => {
+      if (!drag || event.pointerId !== drag.pointerId) return;
+      drag = null;
+      if (ui.header.hasPointerCapture(event.pointerId)) {
+        ui.header.releasePointerCapture(event.pointerId);
+      }
+    };
+
+    ui.header.addEventListener("pointerup", stopDragging);
+    ui.header.addEventListener("pointercancel", stopDragging);
   }
 
   function checkForUpdates(force) {
