@@ -5,9 +5,13 @@
   const EXTENSION_DOWNLOAD_URL =
     "https://raw.githubusercontent.com/Kurillin/rasshirenie-dlya-sovmestnogo-prosmotra/main/watch-together-extension.zip";
   const EXTENSION_INVITE_TEXT = [
-    "Установи расширение «Смотрим вместе», чтобы вместе смотреть YouTube:",
+    "Расширение «Смотрим вместе» / “Watch Together” extension",
+    "Скачать / Download:",
     EXTENSION_DOWNLOAD_URL,
-    "Скачай и распакуй ZIP. В Chrome/Chromium открой chrome://extensions, включи режим разработчика и нажми «Загрузить распакованное расширение». В Edge открой edge://extensions. Выбери распакованную папку с manifest.json."
+    "",
+    "Установка (Chrome/Chromium): скачай и распакуй архив, открой chrome://extensions, включи «Режим разработчика», нажми «Загрузить распакованное расширение» и выбери распакованную папку с manifest.json. В Edge открой edge://extensions и выполни те же шаги.",
+    "",
+    "Installation (Chrome/Chromium): download and unzip the archive, open chrome://extensions, enable Developer mode, click Load unpacked, and select the extracted folder containing manifest.json. In Edge, open edge://extensions and follow the same steps."
   ].join("\n");
   const $ = (root, selector) => root.querySelector(selector);
   const youtube = globalThis.WatchTogetherYouTube;
@@ -86,7 +90,7 @@
           </div>
         </header>
         <div class="wt-share-menu" id="wt-share-menu" aria-label="Поделиться с помощью" hidden>
-          <button class="wt-share-option wt-share-extension" type="button">Пригласить установить расширение</button>
+          <button class="wt-share-option wt-share-extension" type="button">Поделиться расширением</button>
           <button class="wt-share-option wt-share-video" type="button" hidden>Поделиться видео автора комнаты</button>
         </div>
         <div class="wt-update-notice" role="status" hidden>
@@ -196,7 +200,7 @@
     ui.invite.addEventListener("click", toggleShareMenu);
     ui.shareExtension.addEventListener("click", () => {
       closeShareMenu();
-      shareExtensionInvite();
+      copyExtensionInvite();
     });
     ui.shareVideo.addEventListener("click", shareRoomVideo);
     document.addEventListener("pointerdown", (event) => {
@@ -691,13 +695,13 @@
     }
   }
 
-  async function shareExtensionInvite() {
-    await shareMessage(
-      "Расширение «Смотрим вместе»",
-      EXTENSION_INVITE_TEXT,
-      "Приглашение отправлено.",
-      "Приглашение скопировано. Отправьте его друзьям."
-    );
+  async function copyExtensionInvite() {
+    try {
+      await navigator.clipboard.writeText(EXTENSION_INVITE_TEXT);
+      showSuccess("Ссылка и инструкции скопированы. Отправьте их друзьям.");
+    } catch {
+      showError("Не удалось скопировать ссылку и инструкции. Проверьте доступ к буферу обмена.");
+    }
   }
 
   async function shareRoomVideo() {
