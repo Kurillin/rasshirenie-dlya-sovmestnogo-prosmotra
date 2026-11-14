@@ -79,12 +79,16 @@
             <h2>Смотрим вместе</h2>
           </div>
           <div class="wt-header-actions">
-            <button class="wt-icon-button wt-invite" type="button" aria-label="Пригласить установить расширение" title="Пригласить друга">↗</button>
+            <button class="wt-icon-button wt-invite" type="button" aria-label="Поделиться" title="Поделиться" aria-expanded="false" aria-controls="wt-share-menu">↗</button>
             <button class="wt-icon-button wt-duck" type="button" aria-label="Привет от Яро" title="Привет от Яро" hidden>🦆</button>
             <button class="wt-icon-button wt-minimize" type="button" aria-label="Свернуть окно" title="Свернуть">−</button>
             <button class="wt-icon-button wt-close" type="button" aria-label="Закрыть">×</button>
           </div>
         </header>
+        <div class="wt-share-menu" id="wt-share-menu" aria-label="Поделиться с помощью" hidden>
+          <button class="wt-share-option wt-share-extension" type="button">Пригласить установить расширение</button>
+          <button class="wt-share-option wt-share-video" type="button" hidden>Поделиться видео автора комнаты</button>
+        </div>
         <div class="wt-update-notice" role="status" hidden>
           <strong class="wt-update-title"></strong>
           <a class="wt-update-link" target="_blank" rel="noopener noreferrer">Открыть обновление</a>
@@ -144,6 +148,9 @@
       panel: $(root, ".wt-panel"),
       header: $(root, ".wt-header"),
       invite: $(root, ".wt-invite"),
+      shareMenu: $(root, ".wt-share-menu"),
+      shareExtension: $(root, ".wt-share-extension"),
+      shareVideo: $(root, ".wt-share-video"),
       duck: $(root, ".wt-duck"),
       duckPopup: $(root, ".wt-duck-popup"),
       duckPopupClose: $(root, ".wt-duck-popup-close"),
@@ -186,7 +193,21 @@
       panelOpen = !panelOpen;
       renderPanel();
     });
-    ui.invite.addEventListener("click", shareExtensionInvite);
+    ui.invite.addEventListener("click", toggleShareMenu);
+    ui.shareExtension.addEventListener("click", () => {
+      closeShareMenu();
+      shareExtensionInvite();
+    });
+    ui.shareVideo.addEventListener("click", shareRoomVideo);
+    document.addEventListener("pointerdown", (event) => {
+      if (
+        !ui.shareMenu.hidden &&
+        !ui.shareMenu.contains(event.target) &&
+        event.target !== ui.invite
+      ) {
+        closeShareMenu();
+      }
+    });
     ui.close.addEventListener("click", () => {
       panelOpen = false;
       renderPanel();
@@ -198,7 +219,10 @@
     ui.duck.addEventListener("click", sendDuckGreeting);
     ui.duckPopupClose.addEventListener("click", closeDuckPopup);
     window.addEventListener("keydown", (event) => {
-      if (event.key === "Escape" && !ui.duckPopup.hidden) closeDuckPopup();
+      if (event.key === "Escape") {
+        if (!ui.duckPopup.hidden) closeDuckPopup();
+        closeShareMenu();
+      }
     });
     ui.create.addEventListener("click", createRoom);
     ui.join.addEventListener("click", joinRoom);
@@ -668,13 +692,35 @@
   }
 
   async function shareExtensionInvite() {
+    await shareMessage(
+      "Расширение «Смотрим вместе»",
+      EXTENSION_INVITE_TEXT,
+      "Приглашение отправлено.",
+      "Приглашение скопировано. Отправьте его друзьям."
+    );
+  }
+
+  async function shareRoomVideo() {
+    closeShareMenu();
+    if (!room || !room.videoId) {
+      showError("Ссылка на видео комнаты сейчас недоступна.");
+      return;
+    }
+
+    const videoUrl = youtube.getWatchUrl(room.videoId);
+    await shareMessage(
+      "Видео автора комнаты",
+      `Видео, которое выбрал автор комнаты: ${videoUrl}`,
+      "Ссылка на видео отправлена.",
+      "Ссылка на видео комнаты скопирована."
+    );
+  }
+
+  async function shareMessage(title, text, sharedMessage, copiedMessage) {
     if (typeof navigator.share === "function") {
       try {
-        await navigator.share({
-          title: "Расширение «Смотрим вместе»",
-          text: EXTENSION_INVITE_TEXT
-        });
-        showSuccess("Приглашение отправлено.");
+        await navigator.share({ title, text });
+        showSuccess(sharedMessage);
         return;
       } catch (error) {
         if (error.name === "AbortError") return;
@@ -682,11 +728,23 @@
     }
 
     try {
-      await navigator.clipboard.writeText(EXTENSION_INVITE_TEXT);
-      showSuccess("Приглашение скопировано. Отправьте его друзьям.");
+      await navigator.clipboard.writeText(text);
+      showSuccess(copiedMessage);
     } catch {
-      showError("Не удалось скопировать приглашение. Проверьте доступ к буферу обмена.");
+      showError("Не удалось поделиться. Проверьте доступ к буферу обмена.");
     }
+  }
+
+  function toggleShareMenu() {
+    const open = ui.shareMenu.hidden;
+    ui.shareMenu.hidden = !open;
+    ui.invite.setAttribute("aria-expanded", String(open));
+    ui.shareVideo.hidden = !room || !room.videoId;
+  }
+
+  function closeShareMenu() {
+    ui.shareMenu.hidden = true;
+    ui.invite.setAttribute("aria-expanded", "false");
   }
 
   function showSuccess(message) {
@@ -702,6 +760,7 @@
 
   async function leaveRoom() {
     room = null;
+    closeShareMenu();
     if (pollTimer) clearTimeout(pollTimer);
     pollTimer = null;
     lastMessageId = 0;

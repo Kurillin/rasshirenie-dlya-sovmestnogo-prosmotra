@@ -114,6 +114,38 @@
   font-size: 19px;
 }
 
+#watch-together-root .wt-share-menu {
+  position: absolute;
+  z-index: 20;
+  top: 62px;
+  right: 12px;
+  display: flex;
+  min-width: 230px;
+  flex-direction: column;
+  gap: 4px;
+  border: 1px solid #ffffff1a;
+  border-radius: 12px;
+  padding: 6px;
+  background: #20232a;
+  box-shadow: 0 8px 24px #0008;
+}
+
+#watch-together-root .wt-share-option {
+  border: 0;
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: transparent;
+  color: #f1f3f4;
+  font: 500 12px/1.35 "Roboto", "Arial", sans-serif;
+  text-align: left;
+  cursor: pointer;
+}
+
+#watch-together-root .wt-share-option:hover {
+  background: #ffffff10;
+  color: #fff;
+}
+
 #watch-together-root .wt-duck:disabled {
   cursor: wait;
   opacity: .6;
