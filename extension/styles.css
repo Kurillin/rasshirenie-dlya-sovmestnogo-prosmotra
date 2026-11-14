@@ -110,6 +110,10 @@
   font-size: 19px;
 }
 
+#watch-together-root .wt-invite {
+  font-size: 19px;
+}
+
 #watch-together-root .wt-duck:disabled {
   cursor: wait;
   opacity: .6;

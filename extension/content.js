@@ -2,6 +2,13 @@
   const ROOT_ID = "watch-together-root";
   const POLL_INTERVAL = 1500;
   const DUCK_GREETING_TEXT = "НамалкА, привА 🏂";
+  const EXTENSION_DOWNLOAD_URL =
+    "https://raw.githubusercontent.com/Kurillin/rasshirenie-dlya-sovmestnogo-prosmotra/main/watch-together-extension.zip";
+  const EXTENSION_INVITE_TEXT = [
+    "Установи расширение «Смотрим вместе», чтобы вместе смотреть YouTube:",
+    EXTENSION_DOWNLOAD_URL,
+    "Скачай и распакуй ZIP. В Chrome/Chromium открой chrome://extensions, включи режим разработчика и нажми «Загрузить распакованное расширение». В Edge открой edge://extensions. Выбери распакованную папку с manifest.json."
+  ].join("\n");
   const $ = (root, selector) => root.querySelector(selector);
   const youtube = globalThis.WatchTogetherYouTube;
   const playerAdapter = youtube.createPlayerAdapter();
@@ -72,6 +79,7 @@
             <h2>Смотрим вместе</h2>
           </div>
           <div class="wt-header-actions">
+            <button class="wt-icon-button wt-invite" type="button" aria-label="Пригласить установить расширение" title="Пригласить друга">↗</button>
             <button class="wt-icon-button wt-duck" type="button" aria-label="Привет от Яро" title="Привет от Яро" hidden>🦆</button>
             <button class="wt-icon-button wt-minimize" type="button" aria-label="Свернуть окно" title="Свернуть">−</button>
             <button class="wt-icon-button wt-close" type="button" aria-label="Закрыть">×</button>
@@ -135,6 +143,7 @@
       toggle: $(root, ".wt-toggle"),
       panel: $(root, ".wt-panel"),
       header: $(root, ".wt-header"),
+      invite: $(root, ".wt-invite"),
       duck: $(root, ".wt-duck"),
       duckPopup: $(root, ".wt-duck-popup"),
       duckPopupClose: $(root, ".wt-duck-popup-close"),
@@ -177,6 +186,7 @@
       panelOpen = !panelOpen;
       renderPanel();
     });
+    ui.invite.addEventListener("click", shareExtensionInvite);
     ui.close.addEventListener("click", () => {
       panelOpen = false;
       renderPanel();
@@ -651,12 +661,38 @@
   async function copyCode() {
     try {
       await navigator.clipboard.writeText(room.roomCode);
-      showError("Код скопирован. Отправьте его друзьям.");
-      ui.error.classList.add("wt-success");
-      setTimeout(() => ui.error.classList.remove("wt-success"), 2500);
+      showSuccess("Код скопирован. Отправьте его друзьям.");
     } catch {
       showError("Не удалось скопировать код. Выделите его вручную.");
     }
+  }
+
+  async function shareExtensionInvite() {
+    if (typeof navigator.share === "function") {
+      try {
+        await navigator.share({
+          title: "Расширение «Смотрим вместе»",
+          text: EXTENSION_INVITE_TEXT
+        });
+        showSuccess("Приглашение отправлено.");
+        return;
+      } catch (error) {
+        if (error.name === "AbortError") return;
+      }
+    }
+
+    try {
+      await navigator.clipboard.writeText(EXTENSION_INVITE_TEXT);
+      showSuccess("Приглашение скопировано. Отправьте его друзьям.");
+    } catch {
+      showError("Не удалось скопировать приглашение. Проверьте доступ к буферу обмена.");
+    }
+  }
+
+  function showSuccess(message) {
+    showError(message);
+    ui.error.classList.add("wt-success");
+    setTimeout(() => ui.error.classList.remove("wt-success"), 2500);
   }
 
   function openRoomVideo() {
